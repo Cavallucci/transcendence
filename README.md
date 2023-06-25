@@ -49,7 +49,7 @@ Welcome to Transcendence! This project aims to create an exciting and addictive 
 Transcendence is brought to you by the following contributors:
 
 - Louis Lalba
-- Paul Guinier
+- Paul Guignier
 - Marion Kralik
 - Eugénie Françon
 - Laura Cavallucci
