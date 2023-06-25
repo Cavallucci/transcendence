@@ -1,22 +1,35 @@
-# Utilise une image Node.js en tant que base pour l'image
-FROM node:14
+FROM node:18.16.0
 
-# Définis un répertoire de travail
+RUN mkdir /app && chown -R node:node ./app/
+
+USER node
+
 WORKDIR /app
 
-# Copie les fichiers de l'application dans le répertoire de travail
-#COPY ...
+COPY --chown=node:node ./shared ./shared
 
-# Installe les dépendances de l'application
-RUN npm install
+COPY --chown=node:node ./backend/index.html ./backend/index.html
 
-# Installe Prisma CLI
-RUN npm install -g prisma
+COPY --chown=node:node ./backend/package*.json ./backend/yarn.lock ./backend/
 
-# Expose le port utilisé
-EXPOSE 4000
+WORKDIR /app/shared
 
-# Définis l'environnement
-#ENV DATABASE_URL=postgres://<user>:<password>@<host>:<port>/<database_name>
+RUN yarn install --frozen-lockfile --production --non-interactive
 
-CMD ["npm", "start"]
+WORKDIR /app/backend
+
+RUN yarn install --frozen-lockfile --production --non-interactive
+
+COPY --chown=node:node ./backend ./
+
+RUN yarn prisma generate --schema ./src/prisma/schema.prisma
+
+RUN chown node:node ./entrypoint.sh
+
+RUN yarn && yarn run build
+
+EXPOSE ${NESTJS_PORT}
+
+RUN chown node:node ./dist
+
+ENTRYPOINT ["bash", "./entrypoint.sh"]

@@ -1,46 +1,54 @@
+# updates the path to your environment file below (see the files .env.example)
+DOCKER_ENV_FILE		= ./env/docker.env
 
-BLACK		:= $(shell tput -Txterm setaf 0)
-RED			:= $(shell tput -Txterm setaf 1)
-GREEN		:= $(shell tput -Txterm setaf 2)
-YELLOW		:= $(shell tput -Txterm setaf 3)
-LIGHTPURPLE	:= $(shell tput -Txterm setaf 4)
-PURPLE		:= $(shell tput -Txterm setaf 5)
-BLUE		:= $(shell tput -Txterm setaf 6)
-WHITE		:= $(shell tput -Txterm setaf 7)
-RESET		:= $(shell tput -Txterm sgr0)
+ifneq ($(shell docker compose version 2>/dev/null),)
+  DOCKER_COMPOSE	= docker compose --env-file ${DOCKER_ENV_FILE}
+else
+  DOCKER_COMPOSE	= docker-compose --env-file ${DOCKER_ENV_FILE}
+endif
 
-DIR_CHECK := $(shell grep POSTGRES_DIR .env > /dev/null; echo $$?)
+DATABASE_VOLUME		= $(shell basename '$(CURDIR)_postgresql_data' | tr '[:upper:]' '[:lower:]')
 
 all: run
 
-run: 
-ifeq ($(DIR_CHECK), 1)
-	@read -p "Enter Postgres path: " POSTGRES_DIR; \
-	sudo mkdir -p $$POSTGRES_DIR; \
-	echo "POSTGRES_DIR=$$POSTGRES_DIR" >> .env
-endif
-	@sudo docker-compose up -d
+check-env:
+	@ if [ "${DOCKER_COMPOSE}" = "docker-compose" ]; then \
+		echo "$(RED)⚠ Warning: you're using a old version of docker compose, please upgrade to v2.17 or above.$(END)"; \
+		sleep 1; \
+	fi
 
-list:	
-	@sudo docker container ps -a ; sudo docker images
+run: check-env
+	$(DOCKER_COMPOSE) up --build --remove-orphans --force-recreate
 
-clean: 
-ifeq ($(DIR_CHECK), 0)
-	@sed -i "$$(grep -n POSTGRES_DIR .env | cut -f1 -d:)d" .env
-	@echo POSTGRES_DIR var removed from .env
-endif
-	@sudo docker-compose down
-	@sudo docker container prune --force
-	sudo rm -rf $${POSTGRES_DIR}
+list:
+	docker container ps -a
+	docker images
+	docker volume ls
+
+stop:
+	$(DOCKER_COMPOSE) stop
+
+down:
+	$(DOCKER_COMPOSE) down
+
+clean:  down
+	docker container prune --force
 
 fclean: clean
-	-sudo docker stop `sudo docker ps -qa`
-	-sudo docker rm `sudo docker ps -qa`
-	-sudo docker rmi -f `sudo docker images -qa`
-	-sudo docker volume rm `sudo docker volume ls -q`
-	-sudo docker network rm `sudo docker network ls -q 2>/dev/null`
-	sudo rm -rf $${POSTGRES_DIR}
+	docker system prune --all --force
+	docker volume rm $(DATABASE_VOLUME)
+	@printf "$(UP)"
 
-re: fclean run
+re: fclean all
 
 .PHONY: run up debug list list_volumes clean
+
+RESET		= \033[0m
+RED			= \033[1;31m
+GREEN		= \033[1;32m
+YELLOW	= \033[1;33m
+BLUE		= \033[1;34m
+WHITE		= \033[1;37m
+ORANGE	= \033[0;38;5;208m
+UP			= \033[A
+CUT			= \033[K
